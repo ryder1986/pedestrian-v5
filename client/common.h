@@ -29,33 +29,64 @@ public:
 };
 
 #include <QDir>
+#include <QFile>
 inline int log_file(char *fname,char *log)
 {
 
-   if(log_level!=3 && log_level!=4){
-    return 1;
-   }
+    if(log_level!=3 && log_level!=4){
+        return 1;
+    }
 
 
- //   char log_buf[BUFSIZE];
+    //   char log_buf[BUFSIZE];
     char filename[BUFSIZE];
     char dirname[BUFSIZE] = { "log" };
- //   char cmd_buf[BUFSIZE] = { };
-//	if(dname!=NULL){
-//		strcpy(dirname,dname);
-//	}
-    FILE *fp = NULL;
-    if((fp=fopen(dirname,"r"))==NULL){
-//        sprintf(cmd_buf,"mkdir %s",dirname);
-//        system(cmd_buf);
-        printf("createing dir log ");
-      //  mkdir("log","a+");
-        QDir d;
-        d.mkdir("log");
+    //   char cmd_buf[BUFSIZE] = { };
+    //	if(dname!=NULL){
+    //		strcpy(dirname,dname);
+    //	}
 
+    QDir *p_d=new QDir;
+    if(p_d->exists(dirname)==true){
+   //     printf("  dir log  exist \n");
+    }else{
+        printf("  dir log dont   exist \n");
+        if(p_d->mkdir(dirname)==true){
+            printf("  dir log dont   created \n");
+        }else{
+            printf("  dir log dont   created fail\n");
+        }
     }
-    else
-        fclose(fp);
+
+
+    //    QDir *temp = new QDir;
+    //    bool exist = temp->exists("temp");
+    //    if(exist)
+    //  printf("  dir log dont   ex \n");
+    //    else
+    //    {
+    //        bool ok = temp->mkdir("temp");
+
+    //    }
+
+
+    FILE *fp = NULL;
+
+    //    if((fp=fopen(dirname,"r"))==NULL){
+    ////        sprintf(cmd_buf,"mkdir %s",dirname);
+    ////        system(cmd_buf);
+    //        printf("createing dir log \n");
+    //      //  mkdir("log","a+");
+    //        QDir d;
+    //        d.mkdir(dirname);
+
+    //    }
+    //    else
+    //        fclose(fp);
+
+
+
+
     time_t timer;
     struct tm *tblock;
     /* gets time of day */
@@ -73,7 +104,7 @@ inline int log_file(char *fname,char *log)
     fp=NULL;
     fp = fopen(dirname, "a");
     if (fp != NULL) {
-    //	fwrite(log, 1, strlen(log)+1, fp);
+        //	fwrite(log, 1, strlen(log)+1, fp);
         fwrite(log, 1, strlen(log), fp);
         fclose(fp);
     } else {
@@ -101,7 +132,17 @@ inline void add_title(char *label,char *str,int line,char *src_file)
     p_tm = localtime(&timer);
     sprintf(time_label, "[%d:%d:%d]", p_tm->tm_hour,p_tm->tm_min,p_tm->tm_sec);
     sprintf(title_label, "[%s]", label);
-    sprintf(line_label, "(%s:%d)====>", src_file,line);
+    QString filename(src_file);
+
+#if 1
+   // if(strlen(src_file)>10)
+    //     filename.remove(0,filename.length()-10);
+
+    filename= filename.split('\\').last();
+
+    filename= filename.split('\/').last();
+#endif
+    sprintf(line_label, "(%s:%d)====>", filename.toStdString().data(),line);
     //	if(strcmp(label,"cam_state")==0){
     //		print_stacktrace();
     //	}
@@ -201,10 +242,10 @@ inline void add_title(char *label,char *str,int line,char *src_file)
 }
 
 inline void print_str(char *str) {
-if(log_level==2 || log_level==3){
-    printf("%s", str);
-    fflush(stdout);
-}
+    if(log_level==2 || log_level==3){
+        printf("%s", str);
+        fflush(stdout);
+    }
 }
 #define prt(label,... ) {\
     char tmp_string[BUFSIZE] ;	\

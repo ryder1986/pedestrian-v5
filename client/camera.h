@@ -23,8 +23,9 @@ using namespace cv;
 using namespace std;
 //class CameraManager;
 /*
-    get mat from src  every 10 msec , give mat to video handler
-
+    get mat from src  every XX msec , give mat to video handler
+    if video src fail to create  or fail to fetch mat, signal will send to this camera ,
+    frequency will turn down, and try restart video src per XXX sencond
 */
 
 class Camera : public QObject
@@ -36,17 +37,17 @@ public:
         tick=0;
         tick_work=0;
 
-//        p_video_src=new VideoSrc(data.ip);
-//       connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
-//       connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_connected()));
-p_video_src=create_video_src();
-
+        //        p_video_src=new VideoSrc(data.ip);
+        //       connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
+        //       connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_connected()));
 
         connected=false;
+        p_video_src=create_video_src();
+        //  connected=false;
         timer=new QTimer();
         connect(timer,SIGNAL(timeout()),this,SLOT(work()));
         //   fetch_thread.start();
-        timer->start(30);
+        timer->start(1000);
 
     }
     ~Camera(){
@@ -55,75 +56,120 @@ p_video_src=create_video_src();
     }
     VideoSrc *create_video_src()
     {
-     VideoSrc *p=new VideoSrc(data.ip);
-     connect(p,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
-     connect(p,SIGNAL(video_connected()),this,SLOT(source_connected()));
+        VideoSrc *p=new VideoSrc(data.ip);
+        connect(p,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
+        connect(p,SIGNAL(video_connected()),this,SLOT(source_connected()));
         return p;
+    }
+
+    void restart_video_src()
+    {
+        if(p_video_src!=NULL)
+        {
+            disconnect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
+            disconnect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
+            delete p_video_src;
+
+
+        }
+        p_video_src=new VideoSrc(data.ip);
+        connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
+        connect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
+     //   source_connected();
+        if(p_video_src->video_connected_flag==true)
+            source_connected();
+        else
+            source_disconnected();
     }
 
     void restart(camera_data_t dat)
     {
         data=dat;
     }
-    void fetch()
-    {
-        IplImage *f=p_video_src->fetch_frame();
-    }
+    //    void fetch()
+    //    {
+    //        IplImage *f=p_video_src->fetch_frame();
+    //    }
 #ifdef CLIENT
     QWidget *get_render()
     {
         return video_handler.get_render();
     }
 #endif
+    void created_done()
+    {
+        prt(info,"video connected");
+        connected=true;
+        timer->start(30);
+        //  timer->setInterval(30);
+        //  connected=false;
+    }
 signals:
 
 public slots:
     void source_connected()
     {
-        timer->setInterval(30);
-        connected=false;
+        prt(info,"video connected");
+        connected=true;
+        timer->start(30);
+        //  timer->setInterval(30);
+        //  connected=false;
     }
     void source_disconnected()
     {
+        prt(info,"video disconnected");
+        connected=false;
         timer->setInterval(1000);
-    }
 
+        //   timer->stop();
+        restart_video_src();
+
+        // timer->setInterval(1000);
+    }
+    /*
+    video src -> fetch mat
+    video handler -> handle mat
+    timer (always alive) work per xx mseconds
+    */
     void work()
     {
-      //  prt(info,"work pic menually");
-        //  p_video_src->work(video_handler);
-
-        tick++;
-        if(tick==200){
-            // prt(info,"restart video");
-            //   std::this_thread::sleep_for(chrono::milliseconds(1000));
-            delete p_video_src;
-            //       std::this_thread::sleep_for(chrono::milliseconds(1000));
-       //     p_video_src=new VideoSrc(data.ip);
-            p_video_src=create_video_src();
-            tick=0;
-        }
-    //    IplImage *f=p_video_src->fetch_frame();
-        Mat *f=p_video_src->fetch_frame_mat();
-     //   if(f!=NULL&&tick_work++%1==0){
-            if(1){
-            //     if(tick+5%200>10){
-
-            if(f==NULL){
-                prt(info,"get null frame");
-                mt.resize(0);
-                   video_handler.set_frame(&mt);
-            }else
-            {video_handler.set_frame(f);
-
-            video_handler.work("test url");
+        if(connected==true){
+            tick++;
+            if(tick==200){
+                // prt(info,"restart video");
+                //   std::this_thread::sleep_for(chrono::milliseconds(1000));
+                //            delete p_video_src;
+                //            //       std::this_thread::sleep_for(chrono::milliseconds(1000));
+                //            //     p_video_src=new VideoSrc(data.ip);
+                //            p_video_src=create_video_src();
+                restart_video_src();
+                tick=0;
             }
-            //   }
-        }else{
-      //      prt(info,"sleep start");
-       //     std::this_thread::sleep_for(chrono::milliseconds(2000));
-        //    prt(info,"sleep end");
+            //    IplImage *f=p_video_src->fetch_frame();
+            Mat *f=p_video_src->fetch_frame_mat();
+            //   if(f!=NULL&&tick_work++%1==0){
+            if(1){
+                //     if(tick+5%200>10){
 
+                if(f==NULL){
+                    prt(info,"get null frame");
+                    mt.resize(0);
+                    video_handler.set_frame(&mt);
+                }else
+                {video_handler.set_frame(f);
+
+                    video_handler.work("test url");
+                }
+                //   }
+            }else{
+                //      prt(info,"sleep start");
+                //     std::this_thread::sleep_for(chrono::milliseconds(2000));
+                //    prt(info,"sleep end");
+
+            }
+        }else{
+            prt(info,"%s , work ignored cuz unconnected",data.ip.toStdString().data());
+            restart_video_src();
         }
     }
 private:

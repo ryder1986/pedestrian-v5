@@ -15,7 +15,7 @@ using namespace std;
 class VideoSrc:public QObject{
     Q_OBJECT
 public:
-
+   bool video_connected_flag;
     VideoSrc()
     {
         video_connected_flag=true;
@@ -25,11 +25,20 @@ public:
     VideoSrc(QString path)
     {
         //     p_cap= cvCreateFileCapture("rtsp://192.168.1.81:554");  //读取视频
-    //    prt(info,"start video src %s",url);
+        //    prt(info,"start video src %s",url);
+        video_connected_flag=true;
+        memset(url,0,PATH_LEN);
         strcpy(url,path.toStdString().data());
         p_cap= cvCreateFileCapture(url);  //读取视频
-
-        //    prt(info,"get %s",url.toStdString().data());
+        prt(info,"video src restarting  %s",url)
+                if(p_cap==NULL)
+             {   prt(info,"video src start err  ");     video_connected_flag=false;}
+                else
+               { prt(info,"video src  start ok  ")}
+//        if(p_cap==NULL)
+//            emit video_disconnected();
+//        else
+//            emit video_connected();
     }
     ~VideoSrc()
     {
@@ -77,40 +86,43 @@ public:
     //        return handler;
     //    }
 
-    IplImage *fetch_frame()
-    {
-        //   prt(info,"fetching frame from %s",url);
-        IplImage *ret_img;
-        int err=0;
-        ret_img=cvQueryFrame(p_cap);
-        if(ret_img==NULL){
-            //    prt(info,"get video source fail, source url:%s",url);
-            err=1;
-            //     std::this_thread::sleep_for(chrono::milliseconds(1000));
-            //    QThread::sleep(1);
-            if(video_connected_flag==true)
-            {
+    //    IplImage *fetch_frame()
+    //    {
+    //        IplImage *ret_img;
+    //        int err=0;
+    //        ret_img=cvQueryFrame(p_cap);
+    //        if(ret_img==NULL){
+    //            //    prt(info,"get video source fail, source url:%s",url);
+    //            err=1;
+    //            //     std::this_thread::sleep_for(chrono::milliseconds(1000));
+    //            //    QThread::sleep(1);
+    //            if(video_connected_flag==true)
+    //            {
 
-                emit video_disconnected();
-                video_connected_flag=false;
-            }
-            //     prt(info,"sleep done");
-        }else{
-            if(video_connected_flag==false)
-            {
+    //                emit video_disconnected();
+    //                video_connected_flag=false;
+    //            }
+    //            //     prt(info,"sleep done");
+    //        }else{
+    //            if(video_connected_flag==false)
+    //            {
 
-                emit video_connected();
-                video_connected_flag=true;
-            }
-            //    prt(info,"get video source url:  size %d",ret_img->imageSize);
-        }
-        if(err)
-            return NULL;
-        else
-            return ret_img;
-    }
+    //                emit video_connected();
+    //                video_connected_flag=true;
+    //            }
+    //            //    prt(info,"get video source url:  size %d",ret_img->imageSize);
+    //        }
+    //        if(err)
+    //            return NULL;
+    //        else
+    //            return ret_img;
+    //    }
     Mat *fetch_frame_mat()
     {
+        if(p_cap==NULL){
+            video_connected_flag=false;
+            emit video_disconnected();
+        }
         IplImage *ret_img;
         int err=0;
         ret_img=cvQueryFrame(p_cap);
@@ -123,16 +135,17 @@ public:
             if(video_connected_flag==true)
             {
                 prt(info,"%s disconnected",url);
-                emit video_disconnected();
                 video_connected_flag=false;
+
             }
+            emit video_disconnected();
             //     prt(info,"sleep done");
         }else{
             if(video_connected_flag==false)
             {
                 prt(info,"%s connected",url);
-                emit video_connected();
                 video_connected_flag=true;
+                emit video_connected();
             }
             //    prt(info,"get video source url:  size %d",ret_img->imageSize);
         }
@@ -149,7 +162,7 @@ signals:
     void video_disconnected();
 
 private:
-    bool video_connected_flag;
+
     CvCapture *p_cap;
     char url[PATH_LEN];
 
