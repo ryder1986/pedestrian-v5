@@ -16,7 +16,7 @@
 class ClientCameraManager:public CameraManager{
 
 public:
-    ClientCameraManager() :CameraManager("/root/repo-github/pedestrian-v4/client/config.json")
+    ClientCameraManager() :CameraManager("/root/repo-github/pedestrian-v5/client/config.json")
     {
         //     p_cfg=new Config(":/config.json");
     }
