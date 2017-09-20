@@ -28,54 +28,42 @@ using namespace std;
     frequency will turn down, and try restart video src per XXX sencond
 */
 
-class Camera : public QObject
+class Camera : public QThread
 {
     Q_OBJECT
 public:
-    explicit Camera(camera_data_t dat,QObject *parent=0) : data(dat),QObject(parent)
+    bool quit_work;
+    explicit Camera(camera_data_t dat) : data(dat),p_video_src(NULL)
     {
+        quit_work=false;
         tick=0;
         tick_work=0;
-
-        //        p_video_src=new VideoSrc(data.ip);
-        //       connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
-        //       connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_connected()));
-
         connected=false;
-        p_video_src=create_video_src();
-        //  connected=false;
-        timer=new QTimer();
-        connect(timer,SIGNAL(timeout()),this,SLOT(work()));
-        //   fetch_thread.start();
-        timer->start(1000);
-
+        create_video_src();
     }
     ~Camera(){
-        delete timer;
+        if(quit_work==false){
+            prt(info,"waitin for thread quit");
+            quit_work=true;
+            QThread::msleep(1);
+        }
+
         delete p_video_src;
-    }
-    VideoSrc *create_video_src()
-    {
-        VideoSrc *p=new VideoSrc(data.ip);
-        connect(p,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
-        connect(p,SIGNAL(video_connected()),this,SLOT(source_connected()));
-        return p;
+        p_video_src=NULL;
     }
 
-    void restart_video_src()
+    void create_video_src()
     {
         if(p_video_src!=NULL)
         {
             disconnect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
             disconnect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
             delete p_video_src;
-
-
+            p_video_src=NULL;
         }
         p_video_src=new VideoSrc(data.ip);
         connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
         connect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
-     //   source_connected();
         if(p_video_src->video_connected_flag==true)
             source_connected();
         else
@@ -86,24 +74,23 @@ public:
     {
         data=dat;
     }
-    //    void fetch()
-    //    {
-    //        IplImage *f=p_video_src->fetch_frame();
-    //    }
 #ifdef CLIENT
     QWidget *get_render()
     {
         return video_handler.get_render();
     }
 #endif
-    void created_done()
+protected:
+    virtual void run()
     {
-        prt(info,"video connected");
-        connected=true;
-        timer->start(30);
-        //  timer->setInterval(30);
-        //  connected=false;
+        while(quit_work==false)
+        {
+            prt(info,"runing %s",data.ip.toStdString().data());
+            work();
+            QThread::msleep(45);
+        }
     }
+
 signals:
 
 public slots:
@@ -111,20 +98,12 @@ public slots:
     {
         prt(info,"video connected");
         connected=true;
-        timer->start(30);
-        //  timer->setInterval(30);
-        //  connected=false;
     }
     void source_disconnected()
     {
         prt(info,"video disconnected");
         connected=false;
-        timer->setInterval(1000);
-
-        //   timer->stop();
-        restart_video_src();
-
-        // timer->setInterval(1000);
+        create_video_src();
     }
     /*
     video src -> fetch mat
@@ -142,39 +121,35 @@ public slots:
                 //            //       std::this_thread::sleep_for(chrono::milliseconds(1000));
                 //            //     p_video_src=new VideoSrc(data.ip);
                 //            p_video_src=create_video_src();
-                restart_video_src();
+                create_video_src();
                 tick=0;
             }
             //    IplImage *f=p_video_src->fetch_frame();
             Mat *f=p_video_src->fetch_frame_mat();
             //   if(f!=NULL&&tick_work++%1==0){
             if(1){
-                //     if(tick+5%200>10){
-
                 if(f==NULL){
                     prt(info,"get null frame");
                     mt.resize(0);
                     video_handler.set_frame(&mt);
                 }else
-                {video_handler.set_frame(f);
-
+                {
+                    video_handler.set_frame(f);
                     video_handler.work("test url");
                 }
-                //   }
             }else{
                 //      prt(info,"sleep start");
                 //     std::this_thread::sleep_for(chrono::milliseconds(2000));
                 //    prt(info,"sleep end");
-
             }
         }else{
             prt(info,"%s , work ignored cuz unconnected",data.ip.toStdString().data());
-            restart_video_src();
+            source_disconnected();
         }
     }
 private:
     camera_data_t data;//data that camera need
-    QTimer *timer;//do work per xx micro seconds
+    //    QTimer *timer;//do work per xx micro seconds
     VideoSrc*p_video_src;//camera frame source
     VideoHandler video_handler;//camera frame handler
     int tick;
@@ -190,6 +165,7 @@ private:
 class CameraManager:public QObject{
     Q_OBJECT
 public:
+
     //    CameraManager(){
     //        p_cfg=new Config("/root/repo-github/pedestrian-v1/server/config.json");
     //        //     p_cfg=new Config();
@@ -199,16 +175,19 @@ public:
     //        }
     //    }
     CameraManager(char * url){
+
         p_cfg=new Config(url);
-        reload_camera();
+        use_camera_config();
     }
     ~CameraManager(){
+
         for(int i=0;i<p_cfg->data.camera_amount;i++){
-            delete cams[i];
+           // delete cams[i];
+            del_camera_internal(i);
         }
     }
 
-    void reload_camera()
+    void use_camera_config()
     {
         foreach (Camera *c, cams) {
             delete c;
@@ -216,8 +195,9 @@ public:
         int num;
         cams.clear();
         for(int i=0;i<p_cfg->data.camera_amount;i++){
-            Camera *c=new Camera(p_cfg->data.camera[i]);
-            cams.append(c);
+            //            Camera *c=new Camera(p_cfg->data.camera[i]);
+            //            cams.append(c);
+            add_camera_internal(i);
             //  if(i==0)
             //    connect(c->p_src,SIGNAL(frame_update(Mat)),&c->render,SLOT(set_mat(Mat)));
             //   if(i==0)
@@ -238,34 +218,60 @@ public slots:
     void add_camera(QByteArray buf)
     {
         p_cfg->set_ba((buf));
-        Camera *c=new Camera(p_cfg->data.camera[p_cfg->data.camera_amount-1]);
+        //        Camera *c=new Camera(p_cfg->data.camera[p_cfg->data.camera_amount-1]);
+        //        cams.append(c);
+        add_camera_internal();
+    }
+    void add_camera_internal()
+    {
+        //        Camera *c=new Camera(p_cfg->data.camera[p_cfg->data.camera_amount-1]);
+        //        cams.append(c);
+        add_camera_internal(p_cfg->data.camera_amount-1);
+
+    }
+    void add_camera_internal(int index)
+    {
+        Camera *c=new Camera(p_cfg->data.camera[index]);
         cams.append(c);
+        c->start();
+        prt(info,"cam %d append",index);
+    }
+    void del_camera_internal(int index)
+    {
+        delete cams[index];
+        cams.removeAt(index);
+        prt(info,"cam %d deleted",index);
     }
     void add_camera(QString ip)
     {
         //         Camera *c=new Camera(cfg.data.camera[i]);
 
-        camera_data_t ca;
-        ca.ip=ip;
-        ca.port=554;
-        p_cfg->data.camera.append(ca);
-        p_cfg->data.camera_amount++;
-        Camera *c=new Camera(p_cfg->data.camera[p_cfg->data.camera_amount-1]);
-        cams.append(c);
-        p_cfg->save();
+        //        camera_data_t ca;
+        //        ca.ip=ip;
+        //        ca.port=554;
+        //        p_cfg->data.camera.append(ca);
+        //        p_cfg->data.camera_amount++;
+
+        p_cfg->append_camera(ip,554);
+        add_camera_internal();
+        //        Camera *c=new Camera(p_cfg->data.camera[p_cfg->data.camera_amount-1]);
+        //        cams.append(c);
+        //  p_cfg->save();
         //  if(i==0)
         //    connect(c->p_src,SIGNAL(frame_update(Mat)),&c->render,SLOT(set_mat(Mat)));
         //   if(i==0)
         //    layout->addWidget(&c->render,1,cams.length()-1);
     }
-    void del_camera(int index)
+    void del_camera(int cam_no)
     {
-        if(index<=p_cfg->data.camera_amount&&index>0){
-            p_cfg->data.camera.removeAt(index-1);
-            p_cfg->data.camera_amount--;
-            p_cfg->save_config_to_file();
-            delete cams[index-1];
-            cams.removeAt(index-1);
+        if(cam_no<=p_cfg->data.camera_amount&&cam_no>0){
+            //            p_cfg->data.camera.removeAt(index-1);
+            //            p_cfg->data.camera_amount--;
+            //            p_cfg->save_config_to_file();
+            p_cfg->del_camera(cam_no);
+            del_camera_internal(cam_no-1);
+            //            delete cams[index-1];
+            //            cams.removeAt(index-1);
         }
     }
 

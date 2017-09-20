@@ -28,7 +28,7 @@ public:
     void reconfig_camera(QGridLayout *g)
     {
         QList <Camera *> &c=get_cam();
-        reload_camera();
+//        use_camera_config();
         int size=get_size();
         for(int i=0;i<size;i++){
             QWidget *render=(c[i])->get_render();

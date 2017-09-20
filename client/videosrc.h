@@ -8,6 +8,7 @@
 #include <opencv2/objdetect/objdetect.hpp>
 #include <QObject>
 #include <QThread>
+#include <QTimer>
 #include "common.h"
 using namespace cv;
 using namespace std;
@@ -16,12 +17,12 @@ class VideoSrc:public QObject{
     Q_OBJECT
 public:
    bool video_connected_flag;
-    VideoSrc()
-    {
-        video_connected_flag=true;
-        //     p_cap= cvCreateFileCapture("rtsp://192.168.1.81:554");  //读取视频
-        p_cap= cvCreateFileCapture("/root/repo-github/pedestrian/test.mp4");  //读取视频
-    }
+//    VideoSrc()
+//    {
+//        video_connected_flag=true;
+//        //     p_cap= cvCreateFileCapture("rtsp://192.168.1.81:554");  //读取视频
+//        p_cap= cvCreateFileCapture("/root/repo-github/pedestrian/test.mp4");  //读取视频
+//    }
     VideoSrc(QString path)
     {
         //     p_cap= cvCreateFileCapture("rtsp://192.168.1.81:554");  //读取视频
@@ -30,7 +31,7 @@ public:
         memset(url,0,PATH_LEN);
         strcpy(url,path.toStdString().data());
         p_cap= cvCreateFileCapture(url);  //读取视频
-        prt(info,"video src restarting  %s",url)
+        prt(info,"video src starting  %s",url)
                 if(p_cap==NULL)
              {   prt(info,"video src start err  ");     video_connected_flag=false;}
                 else
@@ -39,6 +40,7 @@ public:
 //            emit video_disconnected();
 //        else
 //            emit video_connected();
+    tmr=new QTimer();
     }
     ~VideoSrc()
     {
@@ -119,16 +121,25 @@ public:
     //    }
     Mat *fetch_frame_mat()
     {
+           prt(info,"fetching g to query");
+         tmr->singleShot(10,this,SLOT(time_up()));
+
         if(p_cap==NULL){
             video_connected_flag=false;
             emit video_disconnected();
         }
         IplImage *ret_img;
         int err=0;
+//            prt(info,"try to grb");
+//        int tmp= cvGrabFrame(p_cap);
+//             prt(info,"grub source url:%s ret %d (%p)",url,tmp,p_cap);
+//        ret_img= cvRetrieveFrame(p_cap);
+          prt(info,"try to query");
         ret_img=cvQueryFrame(p_cap);
+           prt(info,"  query done");
         Mat *ret_mat=new Mat(ret_img,0);
         if(ret_img==NULL){
-            //    prt(info,"get video source fail, source url:%s",url);
+            prt(info,"get video source fail, source url:%s",url);
             err=1;
             //     std::this_thread::sleep_for(chrono::milliseconds(1000));
             //    QThread::sleep(1);
@@ -157,12 +168,18 @@ public:
     char *get_url(){
         return url;
     }
+public slots:
+    void time_up()
+    {
+        prt(info,"@@@@@@@@@@@@@@@@@@@@@ timer shot");
+    }
+
 signals:
     void video_connected();
     void video_disconnected();
 
 private:
-
+    QTimer *tmr;
     CvCapture *p_cap;
     char url[PATH_LEN];
 

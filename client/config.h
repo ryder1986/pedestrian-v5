@@ -149,6 +149,22 @@ public:
     void save(){
         save_config_to_file();
     }
+    void append_camera(QString url,int port)
+    {
+        camera_data_t cam;
+        cam.ip=url;
+        cam.port=port;
+        data.camera.append(cam);
+        data.camera_amount++;
+        save();
+    }
+    void del_camera(int index)
+    {
+        data.camera.removeAt(index-1);
+        data.camera_amount--;
+        save();
+    }
+
     int load_config_from_file()
     {
 
