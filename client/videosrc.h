@@ -13,7 +13,30 @@
 using namespace cv;
 using namespace std;
 //#include "videohandler.h"
-class VideoSrc:public QObject{
+//class watch_timer:public QThread{
+//    Q_OBJECT
+//public:
+//    watch_timer()
+//    {
+//        printf("timer_thread start\n");
+//        QTimer::singleShot(10000,this,SLOT(fun()));
+//    }
+//    ~watch_timer()
+//    {
+//        printf("timer_thread quit\n");
+//    }
+
+//public slots:
+//    void  watch()
+//    {
+//        printf("timer_thread\n");
+//        QTimer::singleShot(10000,this,SLOT(fun()));
+//    }
+
+//private:
+
+//};
+class  VideoSrc:public QObject{
     Q_OBJECT
 public:
    bool video_connected_flag;
@@ -31,6 +54,7 @@ public:
         memset(url,0,PATH_LEN);
         strcpy(url,path.toStdString().data());
         p_cap= cvCreateFileCapture(url);  //读取视频
+
         prt(info,"video src starting  %s",url)
                 if(p_cap==NULL)
              {   prt(info,"video src start err  ");     video_connected_flag=false;}
@@ -40,12 +64,29 @@ public:
 //            emit video_disconnected();
 //        else
 //            emit video_connected();
-    tmr=new QTimer();
+        timer=new QTimer();
+      //  tmr->singleShot(1000,this,SLOT(time_up()));
+
+        prt(info," shot afer 100 ms")
+       // QTimer::singleShot(1000,this,SLOT(time_up()));
+        connect(timer,SIGNAL(timeout()),this,SLOT(time_up()));
+        timer->start(100);
     }
     ~VideoSrc()
     {
+            timer->stop();
+            delete timer;
+       //     QThread::sleep(1);
+           prt(info," delete src");
+
+
+
+//    disconnect(tmr,SIGNAL(timeout()),this,SLOT(time_up()));
         cvReleaseCapture(&p_cap);
-        delete p_cap;
+        p_cap=NULL;
+
+     //   delete tmr;
+     //   delete p_cap;
     }
     //    void set(VideoHandler &handler)
     //    {
@@ -119,24 +160,25 @@ public:
     //        else
     //            return ret_img;
     //    }
-    Mat *fetch_frame_mat()
+    Mat *get_frame()
     {
-           prt(info,"fetching g to query");
-         tmr->singleShot(10,this,SLOT(time_up()));
-
+    //       prt(info,"fetching g to query");
+    //     tmr->singleShot(10,this,SLOT(time_up()));
+        int err=0;
         if(p_cap==NULL){
             video_connected_flag=false;
-            emit video_disconnected();
+            err=1;
+         //   emit video_disconnected();
         }
         IplImage *ret_img;
-        int err=0;
+
 //            prt(info,"try to grb");
 //        int tmp= cvGrabFrame(p_cap);
 //             prt(info,"grub source url:%s ret %d (%p)",url,tmp,p_cap);
 //        ret_img= cvRetrieveFrame(p_cap);
-          prt(info,"try to query");
+    //      prt(info,"try to query");
         ret_img=cvQueryFrame(p_cap);
-           prt(info,"  query done");
+  //      prt(info,"  query done");
         Mat *ret_mat=new Mat(ret_img,0);
         if(ret_img==NULL){
             prt(info,"get video source fail, source url:%s",url);
@@ -149,14 +191,14 @@ public:
                 video_connected_flag=false;
 
             }
-            emit video_disconnected();
+        //    emit video_disconnected();
             //     prt(info,"sleep done");
         }else{
             if(video_connected_flag==false)
             {
                 prt(info,"%s connected",url);
                 video_connected_flag=true;
-                emit video_connected();
+        //        emit video_connected();
             }
             //    prt(info,"get video source url:  size %d",ret_img->imageSize);
         }
@@ -172,6 +214,7 @@ public slots:
     void time_up()
     {
         prt(info,"@@@@@@@@@@@@@@@@@@@@@ timer shot");
+       QTimer::singleShot(100,this,SLOT(time_up()));
     }
 
 signals:
@@ -179,7 +222,7 @@ signals:
     void video_disconnected();
 
 private:
-    QTimer *tmr;
+    QTimer *timer;
     CvCapture *p_cap;
     char url[PATH_LEN];
 

@@ -19,6 +19,7 @@
 #include "config.h"
 #include "videosrc.h"
 #include "videohandler.h"
+#include <QMutex>
 using namespace cv;
 using namespace std;
 //class CameraManager;
@@ -45,8 +46,10 @@ public:
         if(quit_work==false){
             prt(info,"waitin for thread quit");
             quit_work=true;
-            QThread::msleep(1);
+            //     QThread::msleep(1000);
         }
+        this->exit();
+        this->wait();
 
         delete p_video_src;
         p_video_src=NULL;
@@ -56,14 +59,20 @@ public:
     {
         if(p_video_src!=NULL)
         {
-            disconnect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
-            disconnect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
+//            disconnect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
+//            disconnect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
+
+
             delete p_video_src;
             p_video_src=NULL;
         }
         p_video_src=new VideoSrc(data.ip);
-        connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
-        connect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
+//        connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
+//        connect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
+
+        connect(this,SIGNAL(restart_source()),this,SLOT(source_disconnected()));
+        connect(this,SIGNAL(restart_source()),this,SLOT(source_connected()));
+
         if(p_video_src->video_connected_flag==true)
             source_connected();
         else
@@ -85,14 +94,18 @@ protected:
     {
         while(quit_work==false)
         {
-            prt(info,"runing %s",data.ip.toStdString().data());
-            work();
+            //         prt(info,"runing %s",data.ip.toStdString().data());
+            if(work()!=true){
+            //    source_disconnected();
+                emit restart_source();
+          //      break;
+            }
             QThread::msleep(45);
         }
     }
 
 signals:
-
+    void restart_source();
 public slots:
     void source_connected()
     {
@@ -100,38 +113,42 @@ public slots:
         connected=true;
     }
     void source_disconnected()
-    {
+    {//   lock.lock();
+        //  if(connected==true){//avoid multiple call
         prt(info,"video disconnected");
         connected=false;
         create_video_src();
+        // }
+        // lock.unlock();
     }
     /*
     video src -> fetch mat
     video handler -> handle mat
     timer (always alive) work per xx mseconds
     */
-    void work()
+    bool work()
     {
-        if(connected==true){
+        bool ret=true;
+  //      if(connected==true){
+            if(p_video_src!=NULL){
             tick++;
-            if(tick==200){
-                // prt(info,"restart video");
-                //   std::this_thread::sleep_for(chrono::milliseconds(1000));
-                //            delete p_video_src;
-                //            //       std::this_thread::sleep_for(chrono::milliseconds(1000));
-                //            //     p_video_src=new VideoSrc(data.ip);
-                //            p_video_src=create_video_src();
-                create_video_src();
-                tick=0;
-            }
+            //            if(tick==200){
+            //                // prt(info,"restart video");
+            //                //   std::this_thread::sleep_for(chrono::milliseconds(1000));
+            //                //            delete p_video_src;
+            //                //            //       std::this_thread::sleep_for(chrono::milliseconds(1000));
+            //                //            //     p_video_src=new VideoSrc(data.ip);
+            //                //            p_video_src=create_video_src();
+            //                create_video_src();
+            //                tick=0;
+            //            }
             //    IplImage *f=p_video_src->fetch_frame();
-            Mat *f=p_video_src->fetch_frame_mat();
-            //   if(f!=NULL&&tick_work++%1==0){
+            Mat *f=p_video_src->get_frame();
             if(1){
                 if(f==NULL){
                     prt(info,"get null frame");
-                    mt.resize(0);
-                    video_handler.set_frame(&mt);
+                //    source_disconnected();
+                    ret=false;
                 }else
                 {
                     video_handler.set_frame(f);
@@ -144,8 +161,10 @@ public slots:
             }
         }else{
             prt(info,"%s , work ignored cuz unconnected",data.ip.toStdString().data());
-            source_disconnected();
+        //    source_disconnected();
+            ret=false;
         }
+        return ret;
     }
 private:
     camera_data_t data;//data that camera need
@@ -182,7 +201,7 @@ public:
     ~CameraManager(){
 
         for(int i=0;i<p_cfg->data.camera_amount;i++){
-           // delete cams[i];
+            // delete cams[i];
             del_camera_internal(i);
         }
     }
@@ -306,6 +325,7 @@ public slots:
     }
 
 private:
+
     QList <Camera *> cams;//cameras that opened, all cameras is working,or trying to work
     Config *p_cfg;//all the setting on this server
 };

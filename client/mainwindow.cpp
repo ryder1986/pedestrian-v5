@@ -45,7 +45,9 @@ void MainWindow::on_pushButton_search_device_clicked()
 
 void MainWindow::on_pushButton_connect_server_clicked()
 {
-    client->server_ip=ui->lineEdit_connect->text();
+  //  client->server_ip=ui->lineEdit_connect->text();
+    client->server_ip=ui->lineEdit_search->text();
+    ui->lineEdit_connect->setText( client->server_ip);
     client->connect_to_server();
 }
 #include "protocol.h"
