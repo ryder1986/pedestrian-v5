@@ -41,6 +41,7 @@ public:
         tick_work=0;
   //      connected=false;
         create_video_src();
+      //      emit restart_source();
     }
     ~Camera(){
         if(quit_work==false){
@@ -57,12 +58,15 @@ public:
 
     void create_video_src()
     {
+        work_lock.lock();//dont work when creating video source
+
+       prt(info,"restart %s done",data.ip.toStdString().data());
         if(p_video_src!=NULL)
         {
 //            disconnect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
 //            disconnect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
             disconnect(this,SIGNAL(restart_source()),this,SLOT(source_disconnected()));
-
+            disconnect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
 
             delete p_video_src;
             p_video_src=NULL;
@@ -72,13 +76,15 @@ public:
 //        connect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
 
         connect(this,SIGNAL(restart_source()),this,SLOT(source_disconnected()),Qt::BlockingQueuedConnection);
-  //      connect(this,SIGNAL(restart_source()),this,SLOT(source_disconnected()),Qt::BlockingQueuedConnection);
+        connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
         //   connect(this,SIGNAL(restart_source()),this,SLOT(source_connected()));
 
 //        if(p_video_src->video_connected_flag==true)
 //            source_connected();
 //        else
 //            source_disconnected();
+  prt(info,"restart %s done",data.ip.toStdString().data());
+    work_lock.unlock();
     }
 
     void restart(camera_data_t dat)
@@ -98,9 +104,10 @@ protected:
         {
             //         prt(info,"runing %s",data.ip.toStdString().data());
             if(work()!=true){
-            //    source_disconnected();
-                emit restart_source();
-           //     QThread::msleep(1000);
+
+           //    create_video_src();
+               emit restart_source();
+               QThread::msleep(100);
           //      break;
             }
             QThread::msleep(5);
@@ -131,6 +138,7 @@ public slots:
     */
     bool work()
     {
+        work_lock.lock();
         bool ret=true;
   //      if(connected==true){
             if(p_video_src!=NULL){
@@ -167,6 +175,7 @@ public slots:
         //    source_disconnected();
             ret=false;
         }
+            work_lock.unlock();
         return ret;
     }
 private:
@@ -178,7 +187,7 @@ private:
     int tick_work;
  //   bool connected=false;
     QList <IplImage> frame_list;
-    QMutex lock;
+    QMutex work_lock;
     Mat mt;
     //   QThread fetch_thread;
 };

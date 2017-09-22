@@ -9,6 +9,7 @@
 #include <QObject>
 #include <QThread>
 #include <QTimer>
+#include <QMutex>
 #include "common.h"
 using namespace cv;
 using namespace std;
@@ -49,6 +50,8 @@ public:
 //    }
     VideoSrc(QString path)
     {
+        running=false;
+        wait_duration=300;//waiting 200ms  before restart video src
        tick=0;
         //     p_cap= cvCreateFileCapture("rtsp://192.168.1.81:554");  //读取视频
         //    prt(info,"start video src %s",url);
@@ -72,11 +75,14 @@ public:
     //    prt(info," shot afer 100 ms")
        // QTimer::singleShot(1000,this,SLOT(time_up()));
         connect(timer,SIGNAL(timeout()),this,SLOT(time_up()));
-     //   timer->start(100);
+        timer->start(wait_duration);
     }
     ~VideoSrc()
     {
+  //   cap_lock.lock();
             timer->stop();
+
+                disconnect(timer,SIGNAL(timeout()),this,SLOT(time_up()));
             delete timer;
        //     QThread::sleep(1);
            prt(info," delete src");
@@ -86,7 +92,7 @@ public:
 //    disconnect(tmr,SIGNAL(timeout()),this,SLOT(time_up()));
         cvReleaseCapture(&p_cap);
         p_cap=NULL;
-
+//    cap_lock.unlock();
      //   delete tmr;
      //   delete p_cap;
     }
@@ -164,8 +170,9 @@ public:
     //    }
     Mat *get_frame()
     {
+     //   cap_lock.lock();
         tick++;
-        prt(info,"fetchingframe %d",tick);
+        //prt(info,"fetchingframe %d",tick);
     //     tmr->singleShot(10,this,SLOT(time_up()));
         int err=0;
         if(p_cap==NULL){
@@ -179,9 +186,14 @@ public:
 //        int tmp= cvGrabFrame(p_cap);
 //             prt(info,"grub source url:%s ret %d (%p)",url,tmp,p_cap);
 //        ret_img= cvRetrieveFrame(p_cap);
-    //      prt(info,"try to query");
+       //   prt(info,"try to query");
+      //    CV_CAP_PROP_XI_TIMEOUT
+        //    int ret=cvSetCaptureProperty(p_cap,CV_CAP_PROP_XI_TIMEOUT,999);
+         // double pro=cvGetCaptureProperty(p_cap,CV_CAP_PROP_XI_TIMEOUT);
+           //  prt(info," set %d ,opecv time out %d",ret ,pro);
+  //      CV_CAP_PROP_XI_TIMEOUT
         ret_img=cvQueryFrame(p_cap);
-  //      prt(info,"  query done");
+//        prt(info,"  query done");
         Mat *ret_mat=new Mat(ret_img,0);
         if(ret_img==NULL){
             prt(info,"get video source fail, source url:%s",url);
@@ -197,6 +209,8 @@ public:
         //    emit video_disconnected();
             //     prt(info,"sleep done");
         }else{
+            running=true;
+        //    prt(info,"%s runing",url);
             if(video_connected_flag==false)
             {
                 prt(info,"%s connected",url);
@@ -205,6 +219,7 @@ public:
             }
             //    prt(info,"get video source url:  size %d",ret_img->imageSize);
         }
+     //   cap_lock.unlock();
         if(err)
             return NULL;
         else
@@ -216,20 +231,29 @@ public:
 public slots:
     void time_up()
     {
-        prt(info,"@@@@@@@@@@@@@@@@@@@@@ timer shot");
-       QTimer::singleShot(100,this,SLOT(time_up()));
+
+       prt(info,"@@@@@@@@@@@@@@@@@@@@@ checking per %d seconds",wait_duration/1000);
+        if(running == false)
+        {
+            prt(info,"################## source need restart ");
+         //  emit video_disconnected();
+        }
+        running= false;
+  //     QTimer::singleShot(wait_duration,this,SLOT(time_up()));
     }
 
 signals:
-    void video_connected();
+//    void video_connected();
     void video_disconnected();
 
 private:
+    bool running;
+    int wait_duration;
     int tick;
     QTimer *timer;
     CvCapture *p_cap;
     char url[PATH_LEN];
-
+  //  QMutex cap_lock;
 };
 
 #endif // VIDEOSRC_H

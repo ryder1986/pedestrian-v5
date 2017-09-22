@@ -3,7 +3,19 @@
         {
             "ip": "/root/video/test.mp4",
             "port": 554
+        },
+        {
+            "ip": "/root/video/test.264",
+            "port": 554
+        },
+        {
+            "ip": "/root/video/test.mp4",
+            "port": 554
+        },
+        {
+            "ip": "/root/video/test.264",
+            "port": 554
         }
     ],
-    "camera_total_number": 1
+    "camera_total_number": 4
 }
