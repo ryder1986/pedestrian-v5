@@ -39,7 +39,7 @@ public:
         quit_work=false;
         tick=0;
         tick_work=0;
-        connected=false;
+  //      connected=false;
         create_video_src();
     }
     ~Camera(){
@@ -61,6 +61,7 @@ public:
         {
 //            disconnect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
 //            disconnect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
+            disconnect(this,SIGNAL(restart_source()),this,SLOT(source_disconnected()));
 
 
             delete p_video_src;
@@ -70,13 +71,14 @@ public:
 //        connect(p_video_src,SIGNAL(video_disconnected()),this,SLOT(source_disconnected()));
 //        connect(p_video_src,SIGNAL(video_connected()),this,SLOT(source_connected()));
 
-        connect(this,SIGNAL(restart_source()),this,SLOT(source_disconnected()));
-        connect(this,SIGNAL(restart_source()),this,SLOT(source_connected()));
+        connect(this,SIGNAL(restart_source()),this,SLOT(source_disconnected()),Qt::BlockingQueuedConnection);
+  //      connect(this,SIGNAL(restart_source()),this,SLOT(source_disconnected()),Qt::BlockingQueuedConnection);
+        //   connect(this,SIGNAL(restart_source()),this,SLOT(source_connected()));
 
-        if(p_video_src->video_connected_flag==true)
-            source_connected();
-        else
-            source_disconnected();
+//        if(p_video_src->video_connected_flag==true)
+//            source_connected();
+//        else
+//            source_disconnected();
     }
 
     void restart(camera_data_t dat)
@@ -98,25 +100,26 @@ protected:
             if(work()!=true){
             //    source_disconnected();
                 emit restart_source();
+           //     QThread::msleep(1000);
           //      break;
             }
-            QThread::msleep(45);
+            QThread::msleep(5);
         }
     }
 
 signals:
     void restart_source();
 public slots:
-    void source_connected()
-    {
-        prt(info,"video connected");
-        connected=true;
-    }
+//    void source_connected()
+//    {
+//        prt(info,"video connected");
+//        connected=true;
+//    }
     void source_disconnected()
     {//   lock.lock();
         //  if(connected==true){//avoid multiple call
         prt(info,"video disconnected");
-        connected=false;
+ //       connected=false;
         create_video_src();
         // }
         // lock.unlock();
@@ -173,7 +176,7 @@ private:
     VideoHandler video_handler;//camera frame handler
     int tick;
     int tick_work;
-    bool connected=false;
+ //   bool connected=false;
     QList <IplImage> frame_list;
     QMutex lock;
     Mat mt;

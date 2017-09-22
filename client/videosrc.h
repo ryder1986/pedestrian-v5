@@ -40,6 +40,7 @@ class  VideoSrc:public QObject{
     Q_OBJECT
 public:
    bool video_connected_flag;
+
 //    VideoSrc()
 //    {
 //        video_connected_flag=true;
@@ -48,6 +49,7 @@ public:
 //    }
     VideoSrc(QString path)
     {
+       tick=0;
         //     p_cap= cvCreateFileCapture("rtsp://192.168.1.81:554");  //读取视频
         //    prt(info,"start video src %s",url);
         video_connected_flag=true;
@@ -55,11 +57,11 @@ public:
         strcpy(url,path.toStdString().data());
         p_cap= cvCreateFileCapture(url);  //读取视频
 
-        prt(info,"video src starting  %s",url)
+     //   prt(info,"video src starting  %s",url)
                 if(p_cap==NULL)
-             {   prt(info,"video src start err  ");     video_connected_flag=false;}
+             {   prt(info,"video src start  %s err  ",url);     video_connected_flag=false;}
                 else
-               { prt(info,"video src  start ok  ")}
+               { prt(info,"video src  start %s ok  ",url)}
 //        if(p_cap==NULL)
 //            emit video_disconnected();
 //        else
@@ -67,10 +69,10 @@ public:
         timer=new QTimer();
       //  tmr->singleShot(1000,this,SLOT(time_up()));
 
-        prt(info," shot afer 100 ms")
+    //    prt(info," shot afer 100 ms")
        // QTimer::singleShot(1000,this,SLOT(time_up()));
         connect(timer,SIGNAL(timeout()),this,SLOT(time_up()));
-        timer->start(100);
+     //   timer->start(100);
     }
     ~VideoSrc()
     {
@@ -162,7 +164,8 @@ public:
     //    }
     Mat *get_frame()
     {
-    //       prt(info,"fetching g to query");
+        tick++;
+        prt(info,"fetchingframe %d",tick);
     //     tmr->singleShot(10,this,SLOT(time_up()));
         int err=0;
         if(p_cap==NULL){
@@ -222,6 +225,7 @@ signals:
     void video_disconnected();
 
 private:
+    int tick;
     QTimer *timer;
     CvCapture *p_cap;
     char url[PATH_LEN];
